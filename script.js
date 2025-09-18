@@ -231,28 +231,32 @@ async function generateLeads(query) {
     const leads = [];
     let progress = 0;
     
-    // Simulate progress updates
+    // Real progress updates
     const progressInterval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 90) progress = 90;
+        progress += Math.random() * 10;
+        if (progress > 85) progress = 85;
         updateProgress(progress, 'Searching Google results...');
-    }, 200);
+    }, 300);
     
     try {
-        // Make SERP API request
-        const response = await fetch(`${CONFIG.SERP_API_URL}?api_key=${CONFIG.SERP_API_KEY}&q=${encodeURIComponent(query)}&engine=google&num=20`);
+        // Make SERP API request with real parameters
+        const apiUrl = `${CONFIG.SERP_API_URL}?api_key=${CONFIG.SERP_API_KEY}&q=${encodeURIComponent(query)}&engine=google&num=20&gl=in&hl=en`;
+        
+        updateProgress(20, 'Connecting to SERP API...');
+        
+        const response = await fetch(apiUrl);
         
         if (!response.ok) {
-            throw new Error(`API request failed: ${response.status}`);
+            throw new Error(`API request failed: ${response.status} - ${response.statusText}`);
         }
         
         const data = await response.json();
         
         clearInterval(progressInterval);
-        updateProgress(100, 'Processing results...');
+        updateProgress(90, 'Processing results...');
         
         // Process organic results
-        if (data.organic_results) {
+        if (data.organic_results && data.organic_results.length > 0) {
             for (const result of data.organic_results) {
                 const lead = processSearchResult(result, query);
                 if (lead) {
@@ -262,7 +266,7 @@ async function generateLeads(query) {
         }
         
         // Process local results if available
-        if (data.local_results) {
+        if (data.local_results && data.local_results.length > 0) {
             for (const result of data.local_results) {
                 const lead = processLocalResult(result, query);
                 if (lead) {
@@ -271,15 +275,28 @@ async function generateLeads(query) {
             }
         }
         
+        // Process knowledge graph results if available
+        if (data.knowledge_graph) {
+            const lead = processKnowledgeGraphResult(data.knowledge_graph, query);
+            if (lead) {
+                leads.push(lead);
+            }
+        }
+        
+        updateProgress(95, 'Enhancing lead data...');
+        
         // Remove duplicates and enhance data
         const uniqueLeads = removeDuplicates(leads);
         const enhancedLeads = await enhanceLeads(uniqueLeads);
+        
+        updateProgress(100, 'Complete!');
         
         return enhancedLeads.slice(0, CONFIG.MAX_RESULTS);
         
     } catch (error) {
         clearInterval(progressInterval);
-        throw error;
+        console.error('SERP API Error:', error);
+        throw new Error(`Failed to fetch leads: ${error.message}`);
     }
 }
 
@@ -292,15 +309,15 @@ function processSearchResult(result, query) {
         name: extractCompanyName(result.title),
         website: result.link,
         description: result.snippet || '',
-        phone: extractPhone(result.snippet),
-        email: extractEmail(result.snippet),
-        address: '',
+        phone: extractPhone(result.snippet || ''),
+        email: extractEmail(result.snippet || ''),
+        address: extractAddress(result.snippet || ''),
         socialMedia: {},
-        rating: null,
-        reviews: null,
-        category: categorizeBusiness(result.title, result.snippet),
-        location: extractLocation(result.title, result.snippet, query),
-        companySize: estimateCompanySize(result.title, result.snippet),
+        rating: extractRating(result),
+        reviews: extractReviews(result),
+        category: categorizeBusiness(result.title, result.snippet || ''),
+        location: extractLocation(result.title, result.snippet || '', query),
+        companySize: estimateCompanySize(result.title, result.snippet || ''),
         priority: calculatePriority(result),
         verified: false,
         lastUpdated: new Date().toISOString()
@@ -319,15 +336,41 @@ function processLocalResult(result, query) {
         website: result.website || '',
         description: result.snippet || '',
         phone: result.phone || '',
-        email: '',
+        email: extractEmail(result.snippet || ''),
         address: result.address || '',
         socialMedia: {},
         rating: result.rating || null,
         reviews: result.reviews || null,
-        category: categorizeBusiness(result.title, result.snippet),
-        location: result.address || extractLocation(result.title, result.snippet, query),
-        companySize: estimateCompanySize(result.title, result.snippet),
+        category: categorizeBusiness(result.title, result.snippet || ''),
+        location: result.address || extractLocation(result.title, result.snippet || '', query),
+        companySize: estimateCompanySize(result.title, result.snippet || ''),
         priority: calculatePriority(result),
+        verified: true,
+        lastUpdated: new Date().toISOString()
+    };
+    
+    return lead;
+}
+
+// Process Knowledge Graph Result
+function processKnowledgeGraphResult(kg, query) {
+    if (!kg.title) return null;
+    
+    const lead = {
+        id: generateId(),
+        name: kg.title,
+        website: kg.website || '',
+        description: kg.description || '',
+        phone: kg.phone || '',
+        email: '',
+        address: kg.address || '',
+        socialMedia: {},
+        rating: kg.rating || null,
+        reviews: kg.reviews || null,
+        category: categorizeBusiness(kg.title, kg.description || ''),
+        location: kg.address || extractLocation(kg.title, kg.description || '', query),
+        companySize: estimateCompanySize(kg.title, kg.description || ''),
+        priority: calculatePriority(kg),
         verified: true,
         lastUpdated: new Date().toISOString()
     };
@@ -349,9 +392,41 @@ function extractCompanyName(title) {
 // Extract Phone Number
 function extractPhone(text) {
     if (!text) return '';
-    const phoneRegex = /(\+?91[\s-]?)?[6-9]\d{9}/g;
+    // Enhanced phone regex for Indian and international numbers
+    const phoneRegex = /(\+?91[\s-]?)?[6-9]\d{9}|(\+?1[\s-]?)?\(?[0-9]{3}\)?[\s-]?[0-9]{3}[\s-]?[0-9]{4}|(\+?[0-9]{1,3}[\s-]?)?[0-9]{8,15}/g;
     const match = text.match(phoneRegex);
     return match ? match[0].replace(/\s+/g, '') : '';
+}
+
+// Extract Address
+function extractAddress(text) {
+    if (!text) return '';
+    // Look for address patterns
+    const addressRegex = /([A-Za-z\s]+(?:Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr|Boulevard|Blvd|Place|Pl|Suite|Ste|Floor|Fl|Unit|Apt|Building|Bldg)[A-Za-z0-9\s,.-]*)/i;
+    const match = text.match(addressRegex);
+    return match ? match[0].trim() : '';
+}
+
+// Extract Rating
+function extractRating(result) {
+    if (result.rating) return result.rating;
+    if (result.snippet) {
+        const ratingRegex = /(\d+\.?\d*)\s*(?:stars?|★|⭐)/i;
+        const match = result.snippet.match(ratingRegex);
+        return match ? parseFloat(match[1]) : null;
+    }
+    return null;
+}
+
+// Extract Reviews
+function extractReviews(result) {
+    if (result.reviews) return result.reviews;
+    if (result.snippet) {
+        const reviewRegex = /(\d+(?:,\d+)*)\s*(?:reviews?|ratings?)/i;
+        const match = result.snippet.match(reviewRegex);
+        return match ? parseInt(match[1].replace(/,/g, '')) : null;
+    }
+    return null;
 }
 
 // Extract Email
@@ -449,18 +524,102 @@ function removeDuplicates(leads) {
 
 // Enhance Leads
 async function enhanceLeads(leads) {
-    // This would typically involve additional API calls to get more data
-    // For now, we'll just add some mock enhancements
+    // Enhance leads with additional data extraction
+    return leads.map(lead => {
+        // Extract social media links from description
+        const socialMedia = extractSocialMedia(lead.description);
+        
+        // Enhance company name
+        const enhancedName = enhanceCompanyName(lead.name);
+        
+        // Extract additional contact info
+        const additionalInfo = extractAdditionalInfo(lead.description);
+        
+        return {
+            ...lead,
+            name: enhancedName,
+            socialMedia: {
+                linkedin: socialMedia.linkedin || generateLinkedInUrl(lead.name),
+                facebook: socialMedia.facebook || '',
+                twitter: socialMedia.twitter || '',
+                instagram: socialMedia.instagram || ''
+            },
+            ...additionalInfo
+        };
+    });
+}
+
+// Extract Social Media Links
+function extractSocialMedia(text) {
+    const socialMedia = {};
     
-    return leads.map(lead => ({
-        ...lead,
-        socialMedia: {
-            linkedin: lead.name.includes('LinkedIn') ? `https://linkedin.com/company/${lead.name.toLowerCase().replace(/\s+/g, '-')}` : '',
-            facebook: '',
-            twitter: '',
-            instagram: ''
-        }
-    }));
+    // LinkedIn
+    const linkedinRegex = /linkedin\.com\/company\/([a-zA-Z0-9-]+)/i;
+    const linkedinMatch = text.match(linkedinRegex);
+    if (linkedinMatch) {
+        socialMedia.linkedin = `https://linkedin.com/company/${linkedinMatch[1]}`;
+    }
+    
+    // Facebook
+    const facebookRegex = /facebook\.com\/([a-zA-Z0-9.-]+)/i;
+    const facebookMatch = text.match(facebookRegex);
+    if (facebookMatch) {
+        socialMedia.facebook = `https://facebook.com/${facebookMatch[1]}`;
+    }
+    
+    // Twitter
+    const twitterRegex = /twitter\.com\/([a-zA-Z0-9_]+)/i;
+    const twitterMatch = text.match(twitterRegex);
+    if (twitterMatch) {
+        socialMedia.twitter = `https://twitter.com/${twitterMatch[1]}`;
+    }
+    
+    return socialMedia;
+}
+
+// Generate LinkedIn URL
+function generateLinkedInUrl(companyName) {
+    const cleanName = companyName
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    
+    return `https://linkedin.com/company/${cleanName}`;
+}
+
+// Enhance Company Name
+function enhanceCompanyName(name) {
+    // Remove common web suffixes and clean up
+    return name
+        .replace(/\s*-\s*.*$/, '') // Remove everything after dash
+        .replace(/\s*\|\s*.*$/, '') // Remove everything after pipe
+        .replace(/\s*:\s*.*$/, '') // Remove everything after colon
+        .replace(/\s*\(.*\)$/, '') // Remove parentheses
+        .replace(/\s*\[.*\]$/, '') // Remove brackets
+        .replace(/\s*\{.*\}$/, '') // Remove braces
+        .trim();
+}
+
+// Extract Additional Info
+function extractAdditionalInfo(text) {
+    const info = {};
+    
+    // Extract years in business
+    const yearsRegex = /(\d+)\s*(?:years?|yrs?)\s*(?:in business|experience|old)/i;
+    const yearsMatch = text.match(yearsRegex);
+    if (yearsMatch) {
+        info.yearsInBusiness = parseInt(yearsMatch[1]);
+    }
+    
+    // Extract employee count
+    const employeesRegex = /(\d+(?:,\d+)*)\s*(?:employees?|staff|team members?)/i;
+    const employeesMatch = text.match(employeesRegex);
+    if (employeesMatch) {
+        info.employeeCount = parseInt(employeesMatch[1].replace(/,/g, ''));
+    }
+    
+    return info;
 }
 
 // Update Progress
@@ -948,61 +1107,6 @@ function debounce(func, wait) {
     };
 }
 
-// Add some sample data for demonstration
-function addSampleData() {
-    const sampleLeads = [
-        {
-            id: 'sample1',
-            name: 'Digital Marketing Pro',
-            website: 'https://digitalmarketingpro.com',
-            description: 'Leading digital marketing agency specializing in SEO, PPC, and social media marketing.',
-            phone: '+91-9876543210',
-            email: 'info@digitalmarketingpro.com',
-            address: 'Sector 29, Gurgaon, Haryana',
-            location: 'Gurgaon',
-            category: 'Marketing',
-            companySize: 'medium',
-            rating: 4.8,
-            reviews: 127,
-            priority: 9,
-            verified: true,
-            socialMedia: {
-                linkedin: 'https://linkedin.com/company/digital-marketing-pro',
-                facebook: 'https://facebook.com/digitalmarketingpro',
-                twitter: 'https://twitter.com/digitalmarketingpro'
-            }
-        },
-        {
-            id: 'sample2',
-            name: 'Tech Solutions Inc',
-            website: 'https://techsolutions.com',
-            description: 'Full-stack web development and mobile app development services.',
-            phone: '+91-9876543211',
-            email: 'contact@techsolutions.com',
-            address: 'Cyber City, Gurgaon, Haryana',
-            location: 'Gurgaon',
-            category: 'Technology',
-            companySize: 'large',
-            rating: 4.6,
-            reviews: 89,
-            priority: 8,
-            verified: true,
-            socialMedia: {
-                linkedin: 'https://linkedin.com/company/tech-solutions-inc'
-            }
-        }
-    ];
-    
-    currentLeads = sampleLeads;
-    filteredLeads = [...sampleLeads];
-    updateStats();
-    displayLeads();
-    showResultsSection();
-}
+// Sample data function removed - now using real SERP API data
 
-// Initialize with sample data for demonstration
-setTimeout(() => {
-    if (currentLeads.length === 0) {
-        addSampleData();
-    }
-}, 4000);
+// Remove sample data initialization - now using real SERP API data
