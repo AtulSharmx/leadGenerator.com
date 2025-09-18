@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a0a">
+    <title>LeadGen Pro - Premium Lead Generation Tool</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <i class="fas fa-rocket"></i>
+                <h1>LeadGen Pro</h1>
+            </div>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+            <p class="loading-text">Initializing premium lead generation...</p>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="main-app" class="main-app hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-content">
+                    <div class="logo">
+                        <i class="fas fa-rocket"></i>
+                        <span>LeadGen Pro</span>
+                    </div>
+                    <div class="header-actions">
+                        <button id="theme-toggle" class="theme-toggle" title="Toggle Theme">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                        <div class="stats">
+                            <div class="stat-item">
+                                <span class="stat-number" id="total-leads">0</span>
+                                <span class="stat-label">Leads</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" id="filtered-leads">0</span>
+                                <span class="stat-label">Filtered</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Search Section -->
+        <section class="search-section">
+            <div class="container">
+                <div class="search-card">
+                    <div class="search-header">
+                        <h2>Generate Premium Leads</h2>
+                        <p>Discover high-quality business leads from Google search results</p>
+                    </div>
+                    
+                    <form id="search-form" class="search-form">
+                        <div class="search-input-group">
+                            <div class="input-wrapper">
+                                <i class="fas fa-search"></i>
+                                <input 
+                                    type="text" 
+                                    id="search-query" 
+                                    placeholder="e.g., digital marketing agencies in Gurgaon"
+                                    required
+                                >
+                            </div>
+                            <button type="submit" class="search-btn">
+                                <span class="btn-text">Generate Leads</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+
+                        <div class="filters-section">
+                            <div class="filter-group">
+                                <label for="location-filter">Location</label>
+                                <input type="text" id="location-filter" placeholder="Enter location (e.g., Gurgaon, Delhi)">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Progress Section -->
+        <section id="progress-section" class="progress-section hidden">
+            <div class="container">
+                <div class="progress-card">
+                    <div class="progress-header">
+                        <h3>Generating Leads</h3>
+                        <p id="progress-text">Initializing search...</p>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-stats">
+                        <div class="progress-stat">
+                            <span class="progress-number" id="leads-found">0</span>
+                            <span class="progress-label">Leads Found</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="progress-number" id="leads-processed">0</span>
+                            <span class="progress-label">Processed</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="results-section" class="results-section hidden">
+            <div class="container">
+                <div class="results-header">
+                    <div class="results-title">
+                        <h3>Generated Leads</h3>
+                        <span class="results-count" id="results-count">0 leads found</span>
+                    </div>
+                    <div class="results-actions">
+                        <div class="search-leads">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="leads-search" placeholder="Search within leads...">
+                        </div>
+                        <button id="export-csv" class="action-btn">
+                            <i class="fas fa-download"></i>
+                            Export CSV
+                        </button>
+                        <button id="export-json" class="action-btn">
+                            <i class="fas fa-code"></i>
+                            Export JSON
+                        </button>
+                    </div>
+                </div>
+
+                <div class="leads-container">
+                    <div id="leads-list" class="leads-list">
+                        <!-- Leads will be dynamically inserted here -->
+                    </div>
+                </div>
+
+                <div id="pagination" class="pagination hidden">
+                    <button id="prev-page" class="page-btn" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                        Previous
+                    </button>
+                    <div class="page-numbers" id="page-numbers"></div>
+                    <button id="next-page" class="page-btn">
+                        Next
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
