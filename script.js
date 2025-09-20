@@ -20,6 +20,7 @@ const elements = {
     mainApp: document.getElementById('main-app'),
     searchForm: document.getElementById('search-form'),
     searchQuery: document.getElementById('search-query'),
+    nicheFilter: document.getElementById('niche-filter'),
     locationFilter: document.getElementById('location-filter'),
     progressSection: document.getElementById('progress-section'),
     progressText: document.getElementById('progress-text'),
@@ -84,6 +85,7 @@ function setupEventListeners() {
     elements.leadsSearch.addEventListener('input', debounce(handleLeadSearch, 300));
     
     // Filter changes
+    elements.nicheFilter.addEventListener('input', debounce(handleFilterChange, 300));
     elements.locationFilter.addEventListener('input', debounce(handleFilterChange, 300));
 }
 
@@ -197,8 +199,21 @@ async function handleSearch(e) {
     if (isSearching) return;
     
     const query = elements.searchQuery.value.trim();
+    const niche = elements.nicheFilter.value.trim();
+    const location = elements.locationFilter.value.trim();
+    
     if (!query) {
         showToast('error', 'Please enter a search query');
+        return;
+    }
+    
+    if (!niche) {
+        showToast('error', 'Please enter a niche');
+        return;
+    }
+    
+    if (!location) {
+        showToast('error', 'Please enter a location');
         return;
     }
     
@@ -207,7 +222,9 @@ async function handleSearch(e) {
     showProgressSection();
     
     try {
-        const leads = await generateLeads(query);
+        // Combine niche and location with the search query for better results
+        const enhancedQuery = `${query} ${niche} ${location}`;
+        const leads = await generateLeads(enhancedQuery);
         currentLeads = leads;
         filteredLeads = [...leads];
         
@@ -907,16 +924,28 @@ function updateStats() {
 // Handle Lead Search
 function handleLeadSearch() {
     const query = elements.leadsSearch.value.toLowerCase().trim();
+    const niche = elements.nicheFilter.value.toLowerCase().trim();
+    const location = elements.locationFilter.value.toLowerCase().trim();
     
-    if (!query) {
+    if (!query && !niche && !location) {
         filteredLeads = [...currentLeads];
     } else {
-        filteredLeads = currentLeads.filter(lead => 
-            lead.name.toLowerCase().includes(query) ||
-            lead.description.toLowerCase().includes(query) ||
-            lead.category.toLowerCase().includes(query) ||
-            lead.location.toLowerCase().includes(query)
-        );
+        filteredLeads = currentLeads.filter(lead => {
+            const searchMatch = !query || 
+                lead.name.toLowerCase().includes(query) ||
+                lead.description.toLowerCase().includes(query) ||
+                lead.category.toLowerCase().includes(query) ||
+                lead.location.toLowerCase().includes(query);
+            
+            const nicheMatch = !niche || 
+                lead.category.toLowerCase().includes(niche) || 
+                lead.description.toLowerCase().includes(niche);
+            
+            const locationMatch = !location || 
+                lead.location.toLowerCase().includes(location);
+            
+            return searchMatch && nicheMatch && locationMatch;
+        });
     }
     
     currentPage = 1;
@@ -926,11 +955,13 @@ function handleLeadSearch() {
 
 // Handle Filter Change
 function handleFilterChange() {
+    const niche = elements.nicheFilter.value.toLowerCase().trim();
     const location = elements.locationFilter.value.toLowerCase().trim();
     
     filteredLeads = currentLeads.filter(lead => {
+        const nicheMatch = !niche || lead.category.toLowerCase().includes(niche) || lead.description.toLowerCase().includes(niche);
         const locationMatch = !location || lead.location.toLowerCase().includes(location);
-        return locationMatch;
+        return nicheMatch && locationMatch;
     });
     
     currentPage = 1;
