@@ -22,6 +22,10 @@ const elements = {
     searchQuery: document.getElementById('search-query'),
     nicheFilter: document.getElementById('niche-filter'),
     locationFilter: document.getElementById('location-filter'),
+    companySizeFilter: document.getElementById('company-size-filter'),
+    industryFilter: document.getElementById('industry-filter'),
+    budgetRangeFilter: document.getElementById('budget-range-filter'),
+    experienceLevelFilter: document.getElementById('experience-level-filter'),
     progressSection: document.getElementById('progress-section'),
     progressText: document.getElementById('progress-text'),
     progressFill: document.getElementById('progress-fill'),
@@ -87,6 +91,10 @@ function setupEventListeners() {
     // Filter changes
     elements.nicheFilter.addEventListener('input', debounce(handleFilterChange, 300));
     elements.locationFilter.addEventListener('input', debounce(handleFilterChange, 300));
+    elements.companySizeFilter.addEventListener('change', debounce(handleFilterChange, 300));
+    elements.industryFilter.addEventListener('input', debounce(handleFilterChange, 300));
+    elements.budgetRangeFilter.addEventListener('change', debounce(handleFilterChange, 300));
+    elements.experienceLevelFilter.addEventListener('change', debounce(handleFilterChange, 300));
 }
 
 // Start Loading Animation
@@ -201,6 +209,10 @@ async function handleSearch(e) {
     const query = elements.searchQuery.value.trim();
     const niche = elements.nicheFilter.value.trim();
     const location = elements.locationFilter.value.trim();
+    const companySize = elements.companySizeFilter.value;
+    const industry = elements.industryFilter.value.trim();
+    const budgetRange = elements.budgetRangeFilter.value;
+    const experienceLevel = elements.experienceLevelFilter.value;
     
     if (!query) {
         showToast('error', 'Please enter a search query');
@@ -222,8 +234,13 @@ async function handleSearch(e) {
     showProgressSection();
     
     try {
-        // Combine niche and location with the search query for better results
-        const enhancedQuery = `${query} ${niche} ${location}`;
+        // Combine all filter values with the search query for better results
+        let enhancedQuery = `${query} ${niche} ${location}`;
+        if (industry) enhancedQuery += ` ${industry}`;
+        if (companySize) enhancedQuery += ` ${companySize} company`;
+        if (budgetRange) enhancedQuery += ` ${budgetRange} budget`;
+        if (experienceLevel) enhancedQuery += ` ${experienceLevel}`;
+        
         const leads = await generateLeads(enhancedQuery);
         currentLeads = leads;
         filteredLeads = [...leads];
@@ -926,8 +943,12 @@ function handleLeadSearch() {
     const query = elements.leadsSearch.value.toLowerCase().trim();
     const niche = elements.nicheFilter.value.toLowerCase().trim();
     const location = elements.locationFilter.value.toLowerCase().trim();
+    const companySize = elements.companySizeFilter.value;
+    const industry = elements.industryFilter.value.toLowerCase().trim();
+    const budgetRange = elements.budgetRangeFilter.value;
+    const experienceLevel = elements.experienceLevelFilter.value;
     
-    if (!query && !niche && !location) {
+    if (!query && !niche && !location && !companySize && !industry && !budgetRange && !experienceLevel) {
         filteredLeads = [...currentLeads];
     } else {
         filteredLeads = currentLeads.filter(lead => {
@@ -944,7 +965,12 @@ function handleLeadSearch() {
             const locationMatch = !location || 
                 lead.location.toLowerCase().includes(location);
             
-            return searchMatch && nicheMatch && locationMatch;
+            const companySizeMatch = !companySize || lead.companySize === companySize;
+            const industryMatch = !industry || lead.category.toLowerCase().includes(industry) || lead.description.toLowerCase().includes(industry);
+            const budgetMatch = !budgetRange || (lead.budgetRange && lead.budgetRange === budgetRange);
+            const experienceMatch = !experienceLevel || (lead.experienceLevel && lead.experienceLevel === experienceLevel);
+            
+            return searchMatch && nicheMatch && locationMatch && companySizeMatch && industryMatch && budgetMatch && experienceMatch;
         });
     }
     
@@ -957,11 +983,20 @@ function handleLeadSearch() {
 function handleFilterChange() {
     const niche = elements.nicheFilter.value.toLowerCase().trim();
     const location = elements.locationFilter.value.toLowerCase().trim();
+    const companySize = elements.companySizeFilter.value;
+    const industry = elements.industryFilter.value.toLowerCase().trim();
+    const budgetRange = elements.budgetRangeFilter.value;
+    const experienceLevel = elements.experienceLevelFilter.value;
     
     filteredLeads = currentLeads.filter(lead => {
         const nicheMatch = !niche || lead.category.toLowerCase().includes(niche) || lead.description.toLowerCase().includes(niche);
         const locationMatch = !location || lead.location.toLowerCase().includes(location);
-        return nicheMatch && locationMatch;
+        const companySizeMatch = !companySize || lead.companySize === companySize;
+        const industryMatch = !industry || lead.category.toLowerCase().includes(industry) || lead.description.toLowerCase().includes(industry);
+        const budgetMatch = !budgetRange || (lead.budgetRange && lead.budgetRange === budgetRange);
+        const experienceMatch = !experienceLevel || (lead.experienceLevel && lead.experienceLevel === experienceLevel);
+        
+        return nicheMatch && locationMatch && companySizeMatch && industryMatch && budgetMatch && experienceMatch;
     });
     
     currentPage = 1;
